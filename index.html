@@ -89,7 +89,8 @@ html,body{height:100%;background:#07090F;color:#F1F5F9;font-family:-apple-system
 .save-btn.rY{background:linear-gradient(135deg,#FF6500,#C44E00);color:#fff;box-shadow:0 8px 30px rgba(255,101,0,.45);cursor:pointer}
 .save-btn.rN{background:linear-gradient(135deg,#EF4444,#991B1B);color:#fff;box-shadow:0 8px 30px rgba(239,68,68,.45);cursor:pointer}
 .save-btn.rM{background:linear-gradient(135deg,#8B5CF6,#4C1D95);color:#fff;box-shadow:0 8px 30px rgba(139,92,246,.45);cursor:pointer}
-.back-btn{margin:10px 13px 32px;padding:13px;background:transparent;color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.08);border-radius:15px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;width:calc(100% - 26px)}
+.back-btn{margin:10px 13px 0;padding:13px;background:transparent;color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.08);border-radius:15px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;width:calc(100% - 26px)}
+.clear-ans-btn{margin:8px 13px 32px;padding:12px;background:transparent;color:rgba(239,68,68,.5);border:1px solid rgba(239,68,68,.2);border-radius:15px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;width:calc(100% - 26px)}
 #vdone{align-items:center;justify-content:center;padding:20px 13px;background:#07090F;position:relative}
 .cf-wrap{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden}
 .cf{position:absolute;animation-name:fall;animation-timing-function:ease-in;animation-fill-mode:both;animation-duration:var(--d,1.5s);animation-delay:var(--dl,0s)}
@@ -215,6 +216,7 @@ html,body{height:100%;background:#07090F;color:#F1F5F9;font-family:-apple-system
   </div>
   <button class="save-btn" id="save-btn" onclick="saveAns()">בחר תחילה</button>
   <button class="back-btn" onclick="goHome()">← חזרה לרשימה</button>
+  <button class="clear-ans-btn" id="clear-ans-btn" onclick="clearAns()" style="display:none">🗑 נקה תשובה</button>
 </div>
 
 <!-- DONE -->
@@ -375,6 +377,8 @@ function startAns(idx) {
   document.getElementById('a-num').textContent = 'שחקן #' + num;
   document.getElementById('a-name').textContent = PL[idx];
   document.getElementById('r-ta').value = resp[idx]?.reason || '';
+  // הראה כפתור מחיקה רק אם יש תשובה קיימת
+  document.getElementById('clear-ans-btn').style.display = resp[idx] ? 'block' : 'none';
   show('vanswer'); updAns();
   const av = document.getElementById('a-avatar');
   av.style.animation = 'none';
@@ -424,7 +428,19 @@ async function saveAns() {
   }
 }
 
-// ── DONE ──────────────────────────────────────────────────
+async function clearAns() {
+  if (!confirm('למחוק את התשובה של ' + PL[sel] + '?')) return;
+  const btn = document.getElementById('clear-ans-btn');
+  btn.textContent = 'מוחק...'; btn.disabled = true;
+  try {
+    await fetch('https://narim-a-default-rtdb.firebaseio.com/narim26/players/' + sel + '.json', { method: 'DELETE' });
+    delete resp[sel];
+    goHome();
+  } catch(e) {
+    alert('שגיאה: ' + e.message);
+    btn.textContent = '🗑 נקה תשובה'; btn.disabled = false;
+  }
+}
 function renderDone() {
   const r = resp[sel], m = SM[r.status];
   const di = document.getElementById('d-icon');
