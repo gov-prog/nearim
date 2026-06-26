@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>נערים א׳ — עונה הבאה</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#07090F;color:#F1F5F9;font-family:-apple-system,'Segoe UI','Arial Hebrew',Arial,sans-serif;-webkit-font-smoothing:antialiased}
+#app{max-width:520px;margin:0 auto}
+.view{display:none;min-height:100vh;flex-direction:column}
+.view.active{display:flex}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(0.8);opacity:0}60%{transform:scale(1.07)}100%{transform:scale(1);opacity:1}}
+@keyframes glow{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes fall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(340px) rotate(720deg);opacity:0}}
+@keyframes slide{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.hero{position:relative;overflow:hidden;background:linear-gradient(180deg,#0D1A2E 0%,#07090F 100%);flex-shrink:0}
+.hero-svg{position:absolute;inset:0;width:100%;height:100%}
+.hoop-glow{position:absolute;top:0;left:50%;transform:translateX(-50%);width:220px;height:100px;background:radial-gradient(ellipse,rgba(255,101,0,.22) 0%,transparent 70%);pointer-events:none;animation:glow 3s ease-in-out infinite}
+.hero-inner{position:relative;padding:32px 18px 0;text-align:center}
+.badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,101,0,.14);border:1px solid rgba(255,101,0,.32);color:#FF8C3A;border-radius:999px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:2px;margin-bottom:12px}
+.hero-title{font-size:32px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1.1;margin-bottom:4px}
+.hero-sub{font-size:14px;color:rgba(255,255,255,.4);margin-bottom:22px}
+.sb{background:rgba(0,0,0,.45);border-top:1px solid rgba(255,255,255,.06);padding:13px 18px;display:flex;align-items:center;justify-content:space-between}
+.sb-lbl{color:rgba(255,255,255,.4);font-size:13px}
+.sb-nums{display:flex;align-items:baseline;gap:5px}
+.sb-big{font-size:28px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums}
+.sb-sep{color:rgba(255,255,255,.2);font-size:18px}
+.sb-tot{font-size:16px;color:rgba(255,255,255,.3)}
+.sb-pct{font-size:13px;font-weight:800;transition:color .3s}
+.prog{height:4px;background:rgba(255,255,255,.07)}
+.prog-fill{height:100%;background:linear-gradient(90deg,#FF6500,#FFB800);transition:width .6s cubic-bezier(.4,0,.2,1)}
+.prog-fill.done{background:linear-gradient(90deg,#22C55E,#4ADE80)}
+.conn-bar{display:flex;align-items:center;gap:7px;padding:7px 16px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.05);font-size:11px;font-weight:700}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot.on{background:#4ADE80;box-shadow:0 0 6px rgba(74,222,128,.6)}
+.dot.off{background:#EF4444;animation:pulse 1.4s infinite}
+.dot.wait{background:#FFB800;animation:pulse 1s infinite}
+.roster{padding:13px 13px 20px;display:flex;flex-direction:column;gap:8px;flex:1}
+.loading-roster{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:rgba(255,255,255,.3);font-size:14px}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,101,0,.2);border-top-color:#FF6500;border-radius:50%;animation:spin 1s linear infinite}
+.pcard{display:flex;align-items:stretch;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .25s,border-color .3s;animation:slide .35s ease both;-webkit-tap-highlight-color:transparent}
+.pcard:active{transform:scale(.98)}
+.pcard[data-s="כן"]{border-color:rgba(255,101,0,.4);box-shadow:0 4px 20px rgba(255,101,0,.18)}
+.pcard[data-s="לא"]{border-color:rgba(239,68,68,.4);box-shadow:0 4px 20px rgba(239,68,68,.16)}
+.pcard[data-s="תלוי"]{border-color:rgba(139,92,246,.4);box-shadow:0 4px 20px rgba(139,92,246,.16)}
+.jersey{width:52px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 0;background:rgba(255,255,255,.05);transition:background .3s,box-shadow .3s}
+.pcard[data-s="כן"] .jersey{background:linear-gradient(180deg,#FF6500,#C44E00);box-shadow:4px 0 18px rgba(255,101,0,.4)}
+.pcard[data-s="לא"] .jersey{background:linear-gradient(180deg,#EF4444,#991B1B);box-shadow:4px 0 18px rgba(239,68,68,.4)}
+.pcard[data-s="תלוי"] .jersey{background:linear-gradient(180deg,#8B5CF6,#4C1D95);box-shadow:4px 0 18px rgba(139,92,246,.4)}
+.j-no-lbl{font-size:8px;font-weight:700;letter-spacing:1.2px;color:rgba(255,255,255,.35)}
+.j-no{font-size:22px;font-weight:900;color:#fff;line-height:1.1}
+.pinfo{flex:1;display:flex;align-items:center;gap:11px;padding:12px 13px}
+.pavatar{width:40px;height:40px;border-radius:11px;flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;transition:background .3s}
+.pcard[data-s="כן"] .pavatar{background:rgba(255,101,0,.14);border-color:rgba(255,101,0,.28)}
+.pcard[data-s="לא"] .pavatar{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.28)}
+.pcard[data-s="תלוי"] .pavatar{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.28)}
+.pname{font-weight:800;font-size:15px;color:#fff;margin-bottom:2px}
+.psub{font-size:11px;font-weight:600;color:rgba(255,255,255,.35)}
+.psub.y{color:#FF8C3A}.psub.n{color:#FC8181}.psub.m{color:#B794F4}
+.pright{padding:0 13px;display:flex;align-items:center;flex-shrink:0}
+.s-badge{border-radius:9px;padding:5px 12px;font-size:12px;font-weight:900;color:#fff;display:inline-block}
+.s-badge.כן{background:linear-gradient(135deg,#FF6500,#C44E00);box-shadow:0 2px 10px rgba(255,101,0,.4)}
+.s-badge.לא{background:linear-gradient(135deg,#EF4444,#991B1B);box-shadow:0 2px 10px rgba(239,68,68,.4)}
+.s-badge.תלוי{background:linear-gradient(135deg,#8B5CF6,#4C1D95);box-shadow:0 2px 10px rgba(139,92,246,.4)}
+.parrow{color:rgba(255,255,255,.2);font-size:18px}
+.sum-btn{margin:4px 13px 24px;padding:15px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.6);border-radius:15px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;width:calc(100% - 26px)}
+.ahero{position:relative;overflow:hidden;min-height:270px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:26px;transition:background .4s ease;background:linear-gradient(180deg,#0D1A2E 0%,#07090F 100%)}
+.bg-glow{position:absolute;inset:0;pointer-events:none;transition:background .4s}
+.a-court{position:absolute;inset:0;width:100%;height:100%}
+.a-content{position:relative;text-align:center;z-index:1}
+.a-bg-num{position:absolute;font-size:160px;font-weight:900;color:rgba(255,255,255,.04);top:50%;left:50%;transform:translate(-50%,-55%);line-height:1;pointer-events:none;user-select:none;letter-spacing:-8px}
+.a-avatar{width:94px;height:94px;border-radius:50%;margin:0 auto 14px;background:linear-gradient(145deg,#1E3A5F,#0F2340);border:3px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(0,0,0,.5);transition:background .4s,border-color .4s,box-shadow .4s;animation:pop .5s cubic-bezier(.34,1.56,.64,1) both}
+.a-num{font-size:11px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,.4);margin-bottom:5px}
+.a-name{font-size:26px;font-weight:900;color:#fff;line-height:1.1;margin-bottom:4px}
+.a-q{font-size:14px;color:rgba(255,255,255,.4)}
+.choices{padding:18px 13px 0;display:flex;flex-direction:column;gap:10px}
+.choice{width:100%;padding:20px;border-radius:18px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.6);font-size:20px;font-weight:900;cursor:pointer;font-family:inherit;transition:all .25s cubic-bezier(.34,1.56,.64,1);text-align:center}
+.choice.sY{background:linear-gradient(135deg,#FF6500,#C44E00);border-color:#FF6500;color:#fff;box-shadow:0 8px 28px rgba(255,101,0,.45);transform:translateY(-3px) scale(1.02)}
+.choice.sN{background:linear-gradient(135deg,#EF4444,#991B1B);border-color:#EF4444;color:#fff;box-shadow:0 8px 28px rgba(239,68,68,.45);transform:translateY(-3px) scale(1.02)}
+.choice.sM{background:linear-gradient(135deg,#8B5CF6,#4C1D95);border-color:#8B5CF6;color:#fff;box-shadow:0 8px 28px rgba(139,92,246,.45);transform:translateY(-3px) scale(1.02)}
+.reason-box{margin:10px 13px 0;padding:16px;background:rgba(255,255,255,.04);border-radius:16px;display:none;animation:fadeUp .3s ease both;border:1px solid rgba(255,255,255,.08)}
+.r-lbl{font-size:12px;font-weight:700;margin-bottom:8px;color:rgba(255,255,255,.5)}
+.r-ta{width:100%;min-height:88px;padding:11px 13px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;font-size:14px;font-family:inherit;color:#fff;resize:vertical;outline:none;transition:border-color .2s}
+.r-ta::placeholder{color:rgba(255,255,255,.25)}
+.save-btn{margin:14px 13px 0;padding:18px;border-radius:18px;border:none;background:rgba(255,255,255,.07);color:rgba(255,255,255,.25);font-size:17px;font-weight:900;font-family:inherit;cursor:not-allowed;transition:all .3s}
+.save-btn.rY{background:linear-gradient(135deg,#FF6500,#C44E00);color:#fff;box-shadow:0 8px 30px rgba(255,101,0,.45);cursor:pointer}
+.save-btn.rN{background:linear-gradient(135deg,#EF4444,#991B1B);color:#fff;box-shadow:0 8px 30px rgba(239,68,68,.45);cursor:pointer}
+.save-btn.rM{background:linear-gradient(135deg,#8B5CF6,#4C1D95);color:#fff;box-shadow:0 8px 30px rgba(139,92,246,.45);cursor:pointer}
+.back-btn{margin:10px 13px 32px;padding:13px;background:transparent;color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.08);border-radius:15px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;width:calc(100% - 26px)}
+#vdone{align-items:center;justify-content:center;padding:20px 13px;background:#07090F;position:relative}
+.cf-wrap{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden}
+.cf{position:absolute;animation-name:fall;animation-timing-function:ease-in;animation-fill-mode:both;animation-duration:var(--d,1.5s);animation-delay:var(--dl,0s)}
+.done-card{background:rgba(255,255,255,.04);border-radius:28px;padding:36px 26px;width:100%;max-width:380px;border:1px solid rgba(255,255,255,.08);text-align:center;animation:pop .5s cubic-bezier(.34,1.56,.64,1) both;position:relative;z-index:10}
+.d-icon{width:88px;height:88px;border-radius:50%;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;font-size:38px}
+.d-title{font-size:26px;font-weight:900;color:#fff;margin-bottom:5px}
+.d-sub{font-size:13px;color:rgba(74,222,128,.8);margin-bottom:20px;font-weight:700}
+.d-result{border-radius:16px;padding:15px 18px;margin-bottom:18px}
+.d-pname{font-weight:900;font-size:17px;color:#fff;margin-bottom:10px}
+.d-pill{display:inline-block;border-radius:999px;padding:6px 22px;font-size:16px;font-weight:900;color:#fff}
+.d-reason{margin-top:10px;font-size:13px;color:rgba(255,255,255,.6);background:rgba(0,0,0,.2);border-radius:10px;padding:8px 11px}
+.d-back{width:100%;padding:15px;border-radius:14px;border:none;font-size:16px;font-weight:900;font-family:inherit;cursor:pointer;color:#fff}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:14px 13px 0}
+.stat{background:rgba(255,255,255,.04);border-radius:18px;padding:16px 8px;text-align:center;border:1px solid rgba(255,255,255,.08)}
+.stat.sY{border-color:rgba(255,101,0,.38);box-shadow:0 4px 18px rgba(255,101,0,.14)}
+.stat.sN{border-color:rgba(239,68,68,.35);box-shadow:0 4px 18px rgba(239,68,68,.12)}
+.stat.sM{border-color:rgba(139,92,246,.35);box-shadow:0 4px 18px rgba(139,92,246,.12)}
+.stat-num{font-size:38px;font-weight:900}
+.stat.sY .stat-num{color:#FF6500}.stat.sN .stat-num{color:#EF4444}.stat.sM .stat-num{color:#8B5CF6}
+.stat-bar{width:22px;height:3px;border-radius:99px;margin:3px auto 5px}
+.stat.sY .stat-bar{background:#FF6500}.stat.sN .stat-bar{background:#EF4444}.stat.sM .stat-bar{background:#8B5CF6}
+.stat-lbl{font-size:12px;font-weight:800}
+.stat.sY .stat-lbl{color:rgba(255,101,0,.8)}.stat.sN .stat-lbl{color:rgba(239,68,68,.8)}.stat.sM .stat-lbl{color:rgba(139,92,246,.8)}
+.slist{padding:12px 13px 0;display:flex;flex-direction:column;gap:7px}
+.sitem{background:rgba(255,255,255,.03);border-radius:14px;overflow:hidden;display:flex;border:1px solid rgba(255,255,255,.06)}
+.sstrip{width:4px;flex-shrink:0}
+.sitem.iY .sstrip{background:#FF6500}.sitem.iN .sstrip{background:#EF4444}.sitem.iM .sstrip{background:#8B5CF6}.sitem.i0 .sstrip{background:rgba(255,255,255,.1)}
+.sbody{flex:1;padding:10px 13px;display:flex;align-items:center;gap:10px}
+.sav{width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.sitem.iY .sav{background:rgba(255,101,0,.14)}.sitem.iN .sav{background:rgba(239,68,68,.12)}.sitem.iM .sav{background:rgba(139,92,246,.12)}.sitem.i0 .sav{background:rgba(255,255,255,.05)}
+.sname{font-weight:800;font-size:14px;color:#fff}
+.sreason{font-size:11px;color:rgba(255,255,255,.4);margin-top:1px}
+.spill{border-radius:8px;padding:4px 11px;font-size:11px;font-weight:900;color:#fff;flex-shrink:0}
+.sitem.iY .spill{background:linear-gradient(135deg,#FF6500,#C44E00)}.sitem.iN .spill{background:linear-gradient(135deg,#EF4444,#991B1B)}.sitem.iM .spill{background:linear-gradient(135deg,#8B5CF6,#4C1D95)}
+.exp-btn{display:block;margin:16px 13px 8px;padding:16px;background:linear-gradient(135deg,#16A34A,#15803D);color:#fff;border:none;border-radius:16px;font-size:15px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 5px 20px rgba(22,163,74,.35);width:calc(100% - 26px)}
+.clear-btn{display:block;margin:0 13px 32px;padding:12px;background:transparent;color:rgba(239,68,68,.5);border:1px solid rgba(239,68,68,.2);border-radius:14px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;width:calc(100% - 26px)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HOME -->
+<div id="vhome" class="view active">
+  <div class="conn-bar">
+    <div class="dot wait" id="conn-dot"></div>
+    <span id="conn-txt" style="color:rgba(255,255,255,.4)">מתחבר...</span>
+    <span style="margin-right:auto;color:rgba(255,255,255,.2);font-size:10px">🔥 Firebase</span>
+  </div>
+  <div class="hero">
+    <svg class="hero-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <path d="M28,0 L28,58 A172,172 0 0 0 372,58 L372,0" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2"/>
+      <rect x="154" y="0" width="92" height="132" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+      <ellipse cx="200" cy="132" rx="46" ry="46" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+      <line x1="154" y1="34" x2="169" y2="34" stroke="rgba(255,255,255,.1)" stroke-width="1.5"/>
+      <line x1="231" y1="34" x2="246" y2="34" stroke="rgba(255,255,255,.1)" stroke-width="1.5"/>
+      <line x1="154" y1="68" x2="169" y2="68" stroke="rgba(255,255,255,.1)" stroke-width="1.5"/>
+      <line x1="231" y1="68" x2="246" y2="68" stroke="rgba(255,255,255,.1)" stroke-width="1.5"/>
+      <line x1="154" y1="102" x2="169" y2="102" stroke="rgba(255,255,255,.1)" stroke-width="1.5"/>
+      <line x1="231" y1="102" x2="246" y2="102" stroke="rgba(255,255,255,.1)" stroke-width="1.5"/>
+      <path d="M183,5 A17,17 0 0 1 217,5" fill="none" stroke="rgba(255,101,0,.38)" stroke-width="2"/>
+      <line x1="182" y1="2" x2="218" y2="2" stroke="rgba(255,255,255,.28)" stroke-width="3"/>
+      <ellipse cx="200" cy="16" rx="15" ry="5" fill="none" stroke="#FF6500" stroke-width="2.5"/>
+      <ellipse cx="200" cy="16" rx="28" ry="15" fill="rgba(255,101,0,.08)"/>
+    </svg>
+    <div class="hoop-glow"></div>
+    <div class="hero-inner">
+      <div class="badge">🏀&ensp;נ ע ר י ם &ensp;א׳</div>
+      <div class="hero-title">עונה הבאה</div>
+      <div class="hero-sub">לחץ על שמך וענה על השאלה</div>
+    </div>
+    <div class="sb">
+      <span class="sb-lbl">ענו</span>
+      <div class="sb-nums"><span class="sb-big" id="sb-n">0</span><span class="sb-sep">/</span><span class="sb-tot">12</span></div>
+      <span class="sb-pct" id="sb-pct" style="color:#FF6500">0%</span>
+    </div>
+    <div class="prog"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+  </div>
+  <div class="roster" id="roster">
+    <div class="loading-roster"><div class="spinner"></div><div>טוען...</div></div>
+  </div>
+  <button class="sum-btn" onclick="showSummary()">📊&ensp;סיכום ויצוא לאקסל</button>
+</div>
+
+<!-- ANSWER -->
+<div id="vanswer" class="view">
+  <div class="ahero" id="ahero">
+    <div class="bg-glow" id="bglow"></div>
+    <svg class="a-court" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" style="opacity:.07">
+      <path d="M28,0 L28,58 A172,172 0 0 0 372,58 L372,0" fill="none" stroke="white" stroke-width="2"/>
+      <rect x="154" y="0" width="92" height="132" fill="none" stroke="white" stroke-width="2"/>
+      <line x1="182" y1="2" x2="218" y2="2" stroke="white" stroke-width="3"/>
+      <ellipse cx="200" cy="16" rx="15" ry="5" fill="none" stroke="#FF6500" stroke-width="2.5"/>
+    </svg>
+    <div class="a-content">
+      <div class="a-bg-num" id="a-bg-num">01</div>
+      <div class="a-avatar" id="a-avatar">
+        <svg width="60" height="60" viewBox="0 0 100 100" fill="none">
+          <circle cx="72" cy="28" r="15" fill="rgba(255,255,255,.92)"/>
+          <path d="M60,28 Q72,17 84,28" stroke="rgba(0,0,0,.18)" stroke-width="2" fill="none"/>
+          <path d="M60,28 Q72,39 84,28" stroke="rgba(0,0,0,.18)" stroke-width="2" fill="none"/>
+          <line x1="72" y1="13" x2="72" y2="43" stroke="rgba(0,0,0,.18)" stroke-width="2"/>
+          <circle cx="32" cy="18" r="13" fill="rgba(255,255,255,.92)"/>
+          <path d="M10,72 C10,48 18,40 32,40 C46,40 54,48 54,72 L51,94 L13,94 Z" fill="rgba(255,255,255,.92)"/>
+          <path d="M52,50 Q64,38 70,43" stroke="rgba(255,255,255,.92)" stroke-width="9" stroke-linecap="round" fill="none"/>
+        </svg>
+      </div>
+      <div class="a-num" id="a-num">שחקן #01</div>
+      <div class="a-name" id="a-name">שם</div>
+      <div class="a-q">האם אתה ממשיך עונה הבאה?</div>
+    </div>
+  </div>
+  <div class="choices">
+    <button class="choice" id="cy" onclick="pick('כן')">כן, ממשיך! 💪</button>
+    <button class="choice" id="cn" onclick="pick('לא')">לא ממשיך ✋</button>
+    <button class="choice" id="cm" onclick="pick('תלוי')">תלוי... 🤔</button>
+  </div>
+  <div class="reason-box" id="rbox">
+    <div class="r-lbl" id="r-lbl">💬 למה?</div>
+    <textarea class="r-ta" id="r-ta" placeholder="כתוב כאן..."></textarea>
+  </div>
+  <button class="save-btn" id="save-btn" onclick="saveAns()">בחר תחילה</button>
+  <button class="back-btn" onclick="goHome()">← חזרה לרשימה</button>
+</div>
+
+<!-- DONE -->
+<div id="vdone" class="view">
+  <div class="cf-wrap" id="cf-wrap"></div>
+  <div class="done-card">
+    <div class="d-icon" id="d-icon"></div>
+    <div class="d-title">נשמר! 🎉</div>
+    <div class="d-sub">✓ נשמר לכולם בענן בזמן אמת</div>
+    <div class="d-result" id="d-result">
+      <div class="d-pname" id="d-pname"></div>
+      <span class="d-pill" id="d-pill"></span>
+      <div class="d-reason" id="d-reason" style="display:none"></div>
+    </div>
+    <button class="d-back" id="d-back" onclick="goHome()">← חזרה לרשימה</button>
+  </div>
+</div>
+
+<!-- SUMMARY -->
+<div id="vsummary" class="view">
+  <div class="hero">
+    <svg class="hero-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <path d="M28,0 L28,58 A172,172 0 0 0 372,58 L372,0" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2"/>
+      <rect x="154" y="0" width="92" height="132" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+      <ellipse cx="200" cy="132" rx="46" ry="46" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+      <line x1="182" y1="2" x2="218" y2="2" stroke="rgba(255,255,255,.28)" stroke-width="3"/>
+      <ellipse cx="200" cy="16" rx="15" ry="5" fill="none" stroke="#FF6500" stroke-width="2.5"/>
+      <ellipse cx="200" cy="16" rx="28" ry="15" fill="rgba(255,101,0,.08)"/>
+    </svg>
+    <div class="hoop-glow"></div>
+    <div class="hero-inner">
+      <div class="badge">📊&ensp;ס י כ ו ם</div>
+      <div class="hero-title">תוצאות</div>
+      <div class="hero-sub">נערים א׳ • עדכון בזמן אמת 🔥</div>
+    </div>
+    <div class="sb">
+      <span class="sb-lbl">ענו</span>
+      <div class="sb-nums"><span class="sb-big" id="s-n">0</span><span class="sb-sep">/</span><span class="sb-tot">12</span></div>
+      <span class="sb-pct" id="s-pct" style="color:#FF6500">0%</span>
+    </div>
+    <div class="prog"><div class="prog-fill" id="s-prog" style="width:0%"></div></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat sY"><div class="stat-num" id="c-y">0</div><div class="stat-bar"></div><div class="stat-lbl">ממשיכים</div></div>
+    <div class="stat sN"><div class="stat-num" id="c-n">0</div><div class="stat-bar"></div><div class="stat-lbl">לא ממשיכים</div></div>
+    <div class="stat sM"><div class="stat-num" id="c-m">0</div><div class="stat-bar"></div><div class="stat-lbl">תלוי</div></div>
+  </div>
+  <div class="slist" id="slist"></div>
+  <button class="exp-btn" onclick="exportCSV()">📥&ensp;יצוא לאקסל (CSV)</button>
+  <button class="back-btn" style="margin-bottom:8px" onclick="goHome()">← חזרה</button>
+  <button class="clear-btn" onclick="clearAll()">🗑 מחק את כל התשובות</button>
+</div>
+
+</div>
+<script>
+// ── Firebase Config ──────────────────────────────
+firebase.initializeApp({
+  apiKey:            "AIzaSyDMYq04_gXziA5SVMXz4Cf4jYztK-kzUKs",
+  authDomain:        "narim-a.firebaseapp.com",
+  databaseURL:       "https://narim-a-default-rtdb.firebaseio.com",
+  projectId:         "narim-a",
+  storageBucket:     "narim-a.firebasestorage.app",
+  messagingSenderId: "824088289763",
+  appId:             "1:824088289763:web:eae3b785b57eb4ed4bc0d6"
+});
+const db = firebase.database();
+// ─────────────────────────────────────────────────
+
+const PL=["ישראל חגבי","שלו מויאל","נווה טרכטנגוט","צורי דגני","אוריה סולטן","הראל קמינקר","נוריאל סיטבון","יהודה שלם","יאיר סאסי","עודד שושן","מתניה ויסמן","איתם קהלני"];
+const SM={
+  "כן" :{bg:"#FF6500",dk:"#C44E00",gl:"rgba(255,101,0,.42)",lt:"rgba(255,101,0,.13)",bd:"rgba(255,101,0,.36)",tx:"#FF8C3A",cc:"Y"},
+  "לא" :{bg:"#EF4444",dk:"#991B1B",gl:"rgba(239,68,68,.42)" ,lt:"rgba(239,68,68,.1)" ,bd:"rgba(239,68,68,.32)" ,tx:"#FC8181",cc:"N"},
+  "תלוי":{bg:"#8B5CF6",dk:"#4C1D95",gl:"rgba(139,92,246,.42)",lt:"rgba(139,92,246,.1)",bd:"rgba(139,92,246,.32)",tx:"#B794F4",cc:"M"}
+};
+
+let resp={}, sel=null, selS=null;
+
+// חיבור + האזנה בזמן אמת
+db.ref('.info/connected').on('value', s=>{
+  const on=s.val();
+  const dot=document.getElementById('conn-dot');
+  const txt=document.getElementById('conn-txt');
+  dot.className='dot '+(on?'on':'off');
+  txt.textContent=on?'מחובר — עדכונים בזמן אמת':'אין חיבור';
+  txt.style.color=on?'rgba(74,222,128,.8)':'rgba(239,68,68,.7)';
+});
+
+db.ref('narim26/players').on('value', snap=>{
+  const data=snap.val()||{};
+  resp={};
+  Object.keys(data).forEach(i=>resp[parseInt(i)]=data[i]);
+  renderHome();
+});
+
+function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function goHome(){show('vhome')}
+
+const ic=(c,op)=>`<svg width="24" height="24" viewBox="0 0 100 100" fill="none"><circle cx="72" cy="28" r="15" fill="${c}" opacity="${op||.9}"/><circle cx="32" cy="18" r="13" fill="${c}" opacity="${op||1}"/><path d="M10,72 C10,48 18,40 32,40 C46,40 54,48 54,72 L51,94 L13,94 Z" fill="${c}" opacity="${op||1}"/><path d="M52,50 Q64,38 70,43" stroke="${c}" stroke-width="9" stroke-linecap="round" fill="none" opacity="${op||1}"/></svg>`;
+
+function renderHome(){
+  const ans=Object.keys(resp).length, pct=Math.round(ans/PL.length*100);
+  document.getElementById('sb-n').textContent=ans;
+  document.getElementById('sb-pct').textContent=pct+'%';
+  document.getElementById('sb-pct').style.color=pct===100?'#4ADE80':'#FF6500';
+  const pf=document.getElementById('prog-fill');
+  pf.style.width=pct+'%'; pf.className='prog-fill'+(pct===100?' done':'');
+  document.getElementById('roster').innerHTML=PL.map((nm,idx)=>{
+    const r=resp[idx],done=!!r,s=done?r.status:'',m=done?SM[s]:null;
+    const num=String(idx+1).padStart(2,'0');
+    const subC=done?(s==='כן'?' y':s==='לא'?' n':' m'):'';
+    const right=done?`<span class="s-badge ${s}">${s}</span>`:`<span class="parrow">›</span>`;
+    return `<div class="pcard" data-s="${s}" style="animation-delay:${idx*.035}s" onclick="startAns(${idx})">
+      <div class="jersey"><span class="j-no-lbl">NO.</span><span class="j-no">${num}</span></div>
+      <div class="pinfo">
+        <div class="pavatar">${ic(done?m.tx:'rgba(255,255,255,.28)')}</div>
+        <div><div class="pname">${nm}</div><div class="psub${subC}">${done?'✓ ענה · לחץ לעריכה':'לא ענה עדיין'}</div></div>
+      </div>
+      <div class="pright">${right}</div>
+    </div>`;
+  }).join('');
+}
+
+function startAns(idx){
+  sel=idx; selS=resp[idx]?.status||null;
+  const num=String(idx+1).padStart(2,'0');
+  document.getElementById('a-bg-num').textContent=num;
+  document.getElementById('a-num').textContent='שחקן #'+num;
+  document.getElementById('a-name').textContent=PL[idx];
+  document.getElementById('r-ta').value=resp[idx]?.reason||'';
+  show('vanswer'); updAns();
+  const av=document.getElementById('a-avatar');
+  av.style.animation='none';
+  requestAnimationFrame(()=>av.style.animation='pop .5s cubic-bezier(.34,1.56,.64,1) both');
+}
+
+function pick(s){selS=selS===s?null:s; updAns()}
+
+function updAns(){
+  const ah=document.getElementById('ahero'),ag=document.getElementById('bglow'),av=document.getElementById('a-avatar');
+  const sb=document.getElementById('save-btn'),rb=document.getElementById('rbox'),rl=document.getElementById('r-lbl');
+  ['cy','cn','cm'].forEach(id=>document.getElementById(id).className='choice');
+  if(selS){
+    const m=SM[selS];
+    document.getElementById(selS==='כן'?'cy':selS==='לא'?'cn':'cm').className=`choice s${m.cc}`;
+    ah.style.background=`linear-gradient(180deg,${m.dk}cc 0%,#07090F 100%)`;
+    ag.style.background=`radial-gradient(ellipse at 50% 0%,${m.gl} 0%,transparent 65%)`;
+    av.style.background=`linear-gradient(145deg,${m.bg},${m.dk})`;
+    av.style.borderColor='rgba(255,255,255,.2)';
+    av.style.boxShadow=`0 0 0 8px ${m.gl.replace('.42','.18')},0 12px 38px ${m.gl}`;
+    sb.textContent='✓ שמור תשובה'; sb.className=`save-btn r${m.cc}`;
+    const nr=selS==='לא'||selS==='תלוי';
+    rb.style.display=nr?'block':'none';
+    if(nr){rb.style.borderColor=m.bd;rl.style.color=m.tx;rl.textContent=selS==='לא'?'💬 למה לא ממשיך?':'💬 מה זה תלוי?'}
+  } else {
+    ah.style.background='linear-gradient(180deg,#0D1A2E 0%,#07090F 100%)';
+    ag.style.background='none';
+    av.style.background='linear-gradient(145deg,#1E3A5F,#0F2340)';
+    av.style.borderColor='rgba(255,255,255,.08)'; av.style.boxShadow='0 8px 32px rgba(0,0,0,.5)';
+    sb.textContent='בחר כן / לא / תלוי'; sb.className='save-btn';
+    rb.style.display='none';
+  }
+}
+
+async function saveAns(){
+  if(!selS) return;
+  const r=document.getElementById('r-ta').value.trim();
+  const btn=document.getElementById('save-btn');
+  btn.disabled=true; btn.textContent='שומר...';
+  try{
+    await db.ref(`narim26/players/${sel}`).set({name:PL[sel],status:selS,reason:r,at:Date.now()});
+    resp[sel]={status:selS,reason:r};
+    renderDone(); show('vdone');
+  }catch(e){
+    alert('שגיאה: '+e.message);
+    btn.disabled=false; btn.textContent='✓ שמור תשובה';
+  }
+}
+
+function renderDone(){
+  const r=resp[sel],m=SM[r.status];
+  const di=document.getElementById('d-icon');
+  di.style.background=`linear-gradient(135deg,${m.bg},${m.dk})`; di.style.boxShadow=`0 8px 28px ${m.gl}`;
+  di.textContent=r.status==='כן'?'🏀':r.status==='לא'?'✋':'🤔';
+  const dr=document.getElementById('d-result');
+  dr.style.background=m.lt; dr.style.border=`1px solid ${m.bd}`;
+  document.getElementById('d-pname').textContent=PL[sel];
+  const dp=document.getElementById('d-pill');
+  dp.textContent=r.status; dp.style.background=`linear-gradient(135deg,${m.bg},${m.dk})`; dp.style.boxShadow=`0 3px 12px ${m.gl}`;
+  const drs=document.getElementById('d-reason');
+  if(r.reason){drs.style.display='block';drs.textContent=r.reason}else drs.style.display='none';
+  const db2=document.getElementById('d-back');
+  db2.style.background=`linear-gradient(135deg,${m.bg},${m.dk})`; db2.style.boxShadow=`0 4px 18px ${m.gl}`;
+  spawnConfetti(m.bg);
+}
+
+function spawnConfetti(col){
+  const w=document.getElementById('cf-wrap'); w.innerHTML='';
+  const cs=[col,'#FFD700','#fff','#FF69B4','#7DF9FF'];
+  for(let i=0;i<36;i++){
+    const el=document.createElement('div'); el.className='cf';
+    el.style.cssText=`left:${Math.random()*100}%;top:${-8-Math.random()*28}px;background:${cs[Math.floor(Math.random()*cs.length)]};width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;border-radius:${Math.random()>.5?'50%':'2px'};--d:${1.2+Math.random()*1.2}s;--dl:${Math.random()*.9}s`;
+    w.appendChild(el);
+  }
+  setTimeout(()=>w.innerHTML='',3400);
+}
+
+function showSummary(){
+  const ans=Object.keys(resp).length, pct=Math.round(ans/PL.length*100);
+  document.getElementById('s-n').textContent=ans;
+  document.getElementById('s-pct').textContent=pct+'%';
+  document.getElementById('s-pct').style.color=pct===100?'#4ADE80':'#FF6500';
+  const sp=document.getElementById('s-prog');
+  sp.style.width=pct+'%'; sp.className='prog-fill'+(pct===100?' done':'');
+  document.getElementById('c-y').textContent=PL.filter((_,i)=>resp[i]?.status==='כן').length;
+  document.getElementById('c-n').textContent=PL.filter((_,i)=>resp[i]?.status==='לא').length;
+  document.getElementById('c-m').textContent=PL.filter((_,i)=>resp[i]?.status==='תלוי').length;
+  document.getElementById('slist').innerHTML=PL.map((nm,idx)=>{
+    const r=resp[idx];
+    if(!r)return `<div class="sitem i0"><div class="sstrip"></div><div class="sbody"><div class="sav" style="opacity:.4">${ic('rgba(255,255,255,.3)')}</div><div><div class="sname" style="opacity:.35">${nm}</div><div class="sreason">לא ענה עדיין</div></div></div></div>`;
+    const m=SM[r.status];
+    return `<div class="sitem i${m.cc}"><div class="sstrip"></div><div class="sbody"><div class="sav">${ic(m.tx)}</div><div style="flex:1"><div class="sname">${nm}</div>${r.reason?`<div class="sreason">${r.reason}</div>`:''}</div><span class="spill">${r.status}</span></div></div>`;
+  }).join('');
+  show('vsummary');
+}
+
+async function clearAll(){
+  if(!confirm('למחוק את כל התשובות מהענן?')) return;
+  await db.ref('narim26/players').remove();
+}
+
+function exportCSV(){
+  const BOM='\uFEFF';
+  const rows=[['#','שם שחקן','סטטוס','הערה'],
+    ...PL.map((p,i)=>[i+1,p,resp[i]?.status||'לא ענה',resp[i]?.reason||'']),
+    [],['',`כן: ${PL.filter((_,i)=>resp[i]?.status==='כן').length}`,
+         `לא: ${PL.filter((_,i)=>resp[i]?.status==='לא').length}`,
+         `תלוי: ${PL.filter((_,i)=>resp[i]?.status==='תלוי').length}`]];
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const b=new Blob([BOM+csv],{type:'text/csv;charset=utf-8;'});
+  const u=URL.createObjectURL(b);
+  Object.assign(document.createElement('a'),{href:u,download:'נערים_א_עונה_הבאה.csv'}).click();
+  URL.revokeObjectURL(u);
+}
+</script>
+</body>
+</html>
